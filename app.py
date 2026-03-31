@@ -5,7 +5,7 @@ import google.generativeai as genai
 
 # --- 1. セキュリティ設定 ---
 # 公開時はこの値を研究室独自のパスワードに変更してください
-LAB_PASSWORD = "aoilabo1-205" 
+LAB_PASSWORD = "lab_pro_2026" 
 
 def check_password():
     if "password_correct" not in st.session_state:
@@ -25,7 +25,17 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 2. AIの設定 ---
+# --- 2. ブラウザの表示フォント修正 (文字化け・字体崩れ対策) ---
+# 日本語環境で「的」などの漢字が正しく表示されるようにCSSを注入します
+st.markdown("""
+    <style>
+    html, body, [class*="css"], .stMarkdown, .stTextArea label, p {
+        font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 3. AIの設定 ---
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
@@ -36,7 +46,7 @@ else:
 tools = [{"google_search_retrieval": {}}]
 model = genai.GenerativeModel(model_name='gemini-1.5-flash', tools=tools)
 
-# --- 3. メインUI ---
+# --- 4. メインUI ---
 st.title("🔬 実験設計 & リアルタイム文献探索")
 st.caption("AIがネット上の学術情報を検索し、具体的な実験条件と参考文献を提案します。")
 
@@ -45,15 +55,27 @@ col_l, col_r = st.columns([2, 3])
 with col_l:
     st.header("📝 実験設計プロトコル")
     
-    # 複数行入力（text_area）に変更
-    main_theme = st.text_area("プロジェクト名 / 研究背景", 
-                              placeholder="例：LPD法による酸化バナジウム薄膜合成。デバイス応用を見据えた低温プロセス開発。", height=80)
+    # プロジェクト背景
+    main_theme = st.text_area(
+        "プロジェクト名 / 研究背景", 
+        placeholder="例：LPD法による酸化バナジウム薄膜合成。デバイス応用を見据えた低温プロセス開発。", 
+        height=100
+    )
     
-    sub_title = st.text_area("今回のサブ実験名 / 検証内容", 
-                             placeholder="例：溶液pHと析出速度の相関。特にpH 4.0付近の結晶性への影響。", height=80)
+    # サブ実験名
+    sub_title = st.text_area(
+        "今回のサブ実験名 / 検証内容", 
+        placeholder="例：溶液pHと析出速度の相関。特にpH 4.0付近の結晶性への影響。", 
+        height=100
+    )
     
-    s1 = st.text_area("1. 物理적境界条件と設定レンジ", height=100)
+    # 物理的境界条件
+    s1 = st.text_area("1. 物理的境界条件と設定レンジ", height=120)
+    
+    # 分解能
     s2 = st.text_area("2. パラメータの分解能", height=100)
+    
+    # 判定基準
     s3 = st.text_area("3. 成功・失敗の判定基準", height=100)
 
     if st.button("AIに相談（ネット検索を実行）"):
@@ -82,7 +104,7 @@ with col_r:
     if 'feedback' in st.session_state:
         st.markdown(st.session_state['feedback'])
 
-# --- 4. PDF出力 ---
+# --- 5. PDF出力 ---
 st.divider()
 if st.button("PDFレポートを生成・保存"):
     pdf = FPDF()
@@ -104,15 +126,15 @@ if st.button("PDFレポートを生成・保存"):
         ]
         
         for t, c in sections:
-            pdf.set_font("IPAexG", 'B', 10)
+            pdf.set_font("IPAexG", style='B', size=10)
             pdf.cell(0, 8, t, ln=True)
             pdf.set_font("IPAexG", size=9)
-            pdf.multi_cell(0, 6, c)
+            pdf.multi_cell(0, 6, str(c))
             pdf.ln(2)
         
         if 'feedback' in st.session_state:
             pdf.add_page()
-            pdf.set_font("IPAexG", 'B', 11)
+            pdf.set_font("IPAexG", size=11)
             pdf.cell(0, 10, "■ AIによる具体的提案と参考文献リスト", ln=True)
             pdf.set_font("IPAexG", size=9)
             pdf.multi_cell(0, 5, st.session_state['feedback'])
@@ -120,4 +142,4 @@ if st.button("PDFレポートを生成・保存"):
         pdf_file = "Experiment_Plan_Refined.pdf"
         pdf.output(pdf_file)
         with open(pdf_file, "rb") as f:
-            st.download_button("PDFをダウンロード", f, file_name=pdf_file)
+            st.download_button("PDFをダウンロード", f, file_name=f"Design_{sub_title[:10]}.pdf")
