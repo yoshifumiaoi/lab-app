@@ -5,7 +5,7 @@ import google.generativeai as genai
 
 # --- 1. セキュリティ設定 ---
 # 公開時はこの値を研究室独自のパスワードに変更してください
-LAB_PASSWORD = "lab_pro_2026" 
+LAB_PASSWORD = "aoilabo1-205" 
 
 def check_password():
     if "password_correct" not in st.session_state:
