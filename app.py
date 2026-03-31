@@ -33,7 +33,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. AIの設定 ---
+# --- 3. AIの設定 (修正版) ---
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
@@ -42,10 +42,17 @@ else:
 
 # 検索ツールを有効化
 tools = [{"google_search_retrieval": {}}]
+
 try:
-    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash', tools=tools)
-except:
-    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
+    # モデル名を 'gemini-1.5-flash' (接頭辞なし) に変更
+    # これにより SDK が適切な API バージョンを自動選択します
+    model = genai.GenerativeModel(
+        model_name='gemini-1.5-flash',
+        tools=tools
+    )
+except Exception as e:
+    # 万が一ツール設定でエラーが出る場合のバックアップ
+    model = genai.GenerativeModel(model_name='gemini-1.5-flash')
 
 # --- 4. メインUI ---
 st.title("🔬 実験設計 & リアルタイム文献探索")
