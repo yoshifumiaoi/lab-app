@@ -70,10 +70,10 @@ with col_l:
     )
     
     # 物理的境界条件
-    s1 = st.text_area("1. 物理的境界条件と設定レンジ", height=120)
+    s1 = st.text_area("1. 実験条件", height=120)
     
     # 分解能
-    s2 = st.text_area("2. パラメータの分解能", height=100)
+    s2 = st.text_area("2. 評価方法", height=100)
     
     # 判定基準
     s3 = st.text_area("3. 成功・失敗の判定基準", height=100)
