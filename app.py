@@ -4,7 +4,7 @@ import os
 import google.generativeai as genai
 
 # --- 1. セキュリティ設定 ---
-LAB_PASSWORD = "aoilabo1-205" 
+LAB_PASSWORD = "lab_pro_2026" 
 
 def check_password():
     if "password_correct" not in st.session_state:
@@ -33,7 +33,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. AIの設定 (修正版) ---
+# --- 3. AIの設定 (404エラー対策版) ---
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
@@ -43,15 +43,14 @@ else:
 # 検索ツールを有効化
 tools = [{"google_search_retrieval": {}}]
 
+# モデルの初期化 (接頭辞なしの 'gemini-1.5-flash' を使用)
 try:
-    # モデル名を 'gemini-1.5-flash' (接頭辞なし) に変更
-    # これにより SDK が適切な API バージョンを自動選択します
     model = genai.GenerativeModel(
         model_name='gemini-1.5-flash',
         tools=tools
     )
 except Exception as e:
-    # 万が一ツール設定でエラーが出る場合のバックアップ
+    # ツール設定でエラーが出る場合のフォールバック
     model = genai.GenerativeModel(model_name='gemini-1.5-flash')
 
 # --- 4. メインUI ---
@@ -63,13 +62,109 @@ col_l, col_r = st.columns([2, 3])
 with col_l:
     st.header("📝 実験設計プロトコル")
     
-    # 1. 実験名
     sub_title = st.text_area(
         "実験名 / 検証内容", 
         placeholder="例：LPD法による酸化バナジウム薄膜合成の最適化", 
         height=80
     )
 
+    hypothesis = st.text_area(
+        "実験の仮説", 
+        placeholder="例：反応温度を上げることで、析出粒径が微細化し、膜の平坦性が向上すると予想する。", 
+        height=100
+    )
+    
+    s1 = st.text_area(
+        "実験条件（パラメータ）をどのような範囲で振るか", 
+        placeholder="例：温度（40℃〜80℃、10℃刻み）、溶液濃度（0.01M〜0.1M）",
+        height=100
+    )
+    
+    s2 = st.text_area(
+        "どのような評価方法を採用するか", 
+        placeholder="例：膜厚測定（段差計）、構造解析（XRD）、表面観察（SEM）",
+        height=100
+    )
+    
+    s3 = st.text_area(
+        "何を判定基準とするか", 
+        placeholder="例：膜厚が100nm以上であること、またはXRDピーク強度の温度依存性が確認できること。",
+        height=100
+    )
+
+    if st.button("AIに相談（ネット検索を実行）"):
+        if not (sub_title or hypothesis):
+            st.error("「実験名」または「仮説」の少なくとも一方は入力してください。")
+        else:
+            with st.spinner("AIが最新論文と照らし合わせて査読中..."):
+                prompt = f"""
+                あなたは材料科学の専門家です。提供された実験計画に対し、学術的・技術的な視点からアドバイスしてください。
+                
+                【実験名】: {sub_title if sub_title else "未入力"}
+                【仮説】: {hypothesis if hypothesis else "未入力"}
+                【パラメータの範囲】: {s1 if s1 else "未入力"}
+                【評価・測定方法】: {s2 if s2 else "未入力"}
+                【判定基準】: {s3 if s3 else "未入力"}
+
+                【要求】
+                1. 理論的妥当性の評価: 物理化学の原理に照らして、設定した範囲や評価方法が適切か指摘してください。
+                2. 文献に基づく裏付け: Google検索を用い、このテーマに関連する実在する論文を提示してください。
+                3. 未入力・不足項目への提案: 特に評価方法や判定基準が不十分な場合、専門家の視点で「逆提案」してください。
+                4. 推奨される具体的な数値や、次のステップ。
+                """
+                try:
+                    # モデルからの応答生成
+                    response = model.generate_content(prompt)
+                    st.session_state['feedback'] = response.text
+                except Exception as e:
+                    # 404エラーなどが発生した場合、具体的なエラー内容を表示
+                    st.error(f"AI実行エラー: {e}")
+                    st.info("APIキーの権限、またはモデル名の指定に問題がある可能性があります。")
+
+with col_r:
+    st.header("🤖 AI指導員：査読結果")
+    if 'feedback' in st.session_state:
+        st.markdown(st.session_state['feedback'])
+
+# --- 5. PDF出力 ---
+st.divider()
+if st.button("PDFレポートを生成・保存"):
+    pdf = FPDF()
+    pdf.add_page()
+    font_path = "ipaexg.ttf"
+    if os.path.exists(font_path):
+        pdf.add_font("IPAexG", fname=font_path)
+        pdf.set_font("IPAexG", size=14)
+        pdf.cell(0, 10, "実験実施計画書（AI査読レポート）", ln=True, align='C')
+        pdf.ln(5)
+        
+        sections = [
+            ("■ 実験名", sub_title),
+            ("■ 実験の仮説", hypothesis),
+            ("■ 実験条件の範囲", s1),
+            ("■ 採用する評価方法", s2),
+            ("■ 何を判定基準とするか", s3)
+        ]
+        
+        for t, c in sections:
+            if c:
+                pdf.set_font("IPAexG", style='B', size=10)
+                pdf.cell(0, 8, t, ln=True)
+                pdf.set_font("IPAexG", size=9)
+                pdf.multi_cell(0, 6, str(c))
+                pdf.ln(2)
+        
+        if 'feedback' in st.session_state:
+            pdf.add_page()
+            pdf.set_font("IPAexG", size=11)
+            pdf.cell(0, 10, "■ AIによる具体的提案と参考文献", ln=True)
+            pdf.set_font("IPAexG", size=9)
+            pdf.multi_cell(0, 5, st.session_state['feedback'])
+            
+        pdf_file = "Experiment_Design_Report.pdf"
+        pdf.output(pdf_file)
+        with open(pdf_file, "rb") as f:
+            st.download_button("PDFをダウンロード", f, file_name=f"Report_{sub_title[:10] if sub_title else 'Lab'}.pdf")
     # 2. 実験の仮説
     hypothesis = st.text_area(
         "実験の仮説", 
